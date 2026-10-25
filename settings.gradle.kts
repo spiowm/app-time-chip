@@ -30,6 +30,6 @@ plugins {
   id("org.gradle.toolchains.foojay-resolver-convention") version "1.0.0"
 }
 
-rootProject.name = "App Time Chip"
+rootProject.name = "app-time-chip"
 
 include(":app")

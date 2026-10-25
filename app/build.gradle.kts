@@ -11,13 +11,14 @@ android {
     minSdk = 36
     targetSdk = 37
     versionCode = 1
-    versionName = "1.0"
+    versionName = "0.1.0"
   }
 
   buildTypes {
     release {
-      isMinifyEnabled = false
-      proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+      isMinifyEnabled = true
+      isShrinkResources = true
+      proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
     }
   }
   compileOptions {
@@ -43,21 +44,10 @@ kotlin {
 }
 
 dependencies {
-  val composeBom = platform(libs.androidx.compose.bom)
-  implementation(composeBom)
-
-  // Core Android dependencies
+  implementation(platform(libs.androidx.compose.bom))
   implementation(libs.androidx.core.ktx)
-  implementation(libs.androidx.lifecycle.runtime.ktx)
   implementation(libs.androidx.activity.compose)
-
-  // Arch Components
   implementation(libs.androidx.lifecycle.runtime.compose)
-
-  // Compose
   implementation(libs.androidx.compose.ui)
-  implementation(libs.androidx.compose.ui.tooling.preview)
   implementation(libs.androidx.compose.material3)
-  // Tooling
-  debugImplementation(libs.androidx.compose.ui.tooling)
 }
