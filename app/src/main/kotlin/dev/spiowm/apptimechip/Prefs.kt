@@ -5,14 +5,14 @@ import androidx.core.content.edit
 
 /** What the chip counts. */
 enum class Mode {
+  /** Total time in the app today; resets at midnight. */
+  DAY,
+
   /** Continuous time in the app; a short step out does not restart it. */
   SESSION,
 
   /** Starts from zero every time the app is opened. */
   EACH_OPEN,
-
-  /** Total time in the app today; resets at midnight. */
-  DAY,
 }
 
 /** User settings, stored in plain SharedPreferences. */
@@ -46,6 +46,37 @@ class Prefs(context: Context) {
     get() = sp.getInt(KEY_REMINDER, 15)
     set(value) = sp.edit { putInt(KEY_REMINDER, value) }
 
+  /** Show both today's total and the current session in the notification shade. */
+  var showBoth: Boolean
+    get() = sp.getBoolean(KEY_SHOW_BOTH, true)
+    set(value) = sp.edit { putBoolean(KEY_SHOW_BOTH, value) }
+
+  var reminderVibrate: Boolean
+    get() = sp.getBoolean(KEY_REMINDER_VIBRATE, true)
+    set(value) = sp.edit { putBoolean(KEY_REMINDER_VIBRATE, value) }
+
+  var reminderText: Boolean
+    get() = sp.getBoolean(KEY_REMINDER_TEXT, true)
+    set(value) = sp.edit { putBoolean(KEY_REMINDER_TEXT, value) }
+
+  /** Per-app override of [mode]; null means the app follows the global setting. */
+  fun appMode(packageName: String): Mode? =
+    Mode.entries.firstOrNull { it.name == sp.getString(KEY_APP_MODE + packageName, null) }
+
+  fun setAppMode(packageName: String, value: Mode?) =
+    sp.edit { if (value == null) remove(KEY_APP_MODE + packageName) else putString(KEY_APP_MODE + packageName, value.name) }
+
+  /** Per-app override of [reminderMinutes]; null means the app follows the global setting. */
+  fun appReminder(packageName: String): Int? =
+    if (sp.contains(KEY_APP_REMINDER + packageName)) sp.getInt(KEY_APP_REMINDER + packageName, 0) else null
+
+  fun setAppReminder(packageName: String, value: Int?) =
+    sp.edit { if (value == null) remove(KEY_APP_REMINDER + packageName) else putInt(KEY_APP_REMINDER + packageName, value) }
+
+  fun modeFor(packageName: String): Mode = appMode(packageName) ?: mode
+
+  fun reminderFor(packageName: String): Int = appReminder(packageName) ?: reminderMinutes
+
   companion object {
     private const val KEY_ENABLED = "enabled"
     private const val KEY_TRACKED = "tracked"
@@ -53,6 +84,11 @@ class Prefs(context: Context) {
     private const val KEY_GRACE = "grace_seconds"
     private const val KEY_STEP = "step_minutes"
     private const val KEY_REMINDER = "reminder_minutes"
+    private const val KEY_SHOW_BOTH = "show_both"
+    private const val KEY_REMINDER_VIBRATE = "reminder_vibrate"
+    private const val KEY_REMINDER_TEXT = "reminder_text"
+    private const val KEY_APP_MODE = "app_mode:"
+    private const val KEY_APP_REMINDER = "app_reminder:"
 
     val DEFAULT_TRACKED = setOf("com.reddit.frontpage")
     val GRACE_OPTIONS = listOf(30, 60, 120, 300)

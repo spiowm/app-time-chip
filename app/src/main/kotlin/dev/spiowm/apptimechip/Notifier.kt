@@ -36,39 +36,37 @@ class Notifier(private val context: Context) {
       .build()
 
   /**
-   * The chip. With [minutes] == null the system chronometer counts seconds on its own;
-   * otherwise the chip shows [minutes] as text and the caller reposts when it changes.
+   * The chip. With [chipMinutes] == null the system chronometer counts seconds on its own;
+   * otherwise the chip shows [chipMinutes] as text and the caller reposts when it changes.
    * Pixel ignores the notification color in the chip, so [overdue] swaps the icon instead.
    */
-  fun liveNotification(packageName: String, base: Long, minutes: Long?, mode: Mode, overdue: Boolean): Notification {
-    val label = if (mode == Mode.DAY) "Сьогодні в цій апці" else "Час у цій апці"
+  fun liveNotification(packageName: String, base: Long, chipMinutes: Long?, text: String, overdue: Boolean): Notification {
     val builder = Notification.Builder(context, CHANNEL_LIVE)
       .setSmallIcon(if (overdue) R.drawable.ic_hourglass else R.drawable.ic_timer)
       .setContentTitle(appLabel(packageName))
+      .setContentText(text)
       .setContentIntent(openAppIntent())
       .setCategory(Notification.CATEGORY_STOPWATCH)
       .setOngoing(true)
       .setOnlyAlertOnce(true)
       .setRequestPromotedOngoing(true)
       .setWhen(base)
-    if (minutes == null) {
-      builder.setContentText(label).setShowWhen(true).setUsesChronometer(true)
+    if (chipMinutes == null) {
+      builder.setShowWhen(true).setUsesChronometer(true)
     } else {
-      builder.setContentText("$label: ${longMinutes(minutes)}")
-        .setShowWhen(false)
-        .setShortCriticalText(shortMinutes(minutes))
+      builder.setShowWhen(false).setShortCriticalText(shortMinutes(chipMinutes))
     }
     return builder.build()
   }
 
-  fun showLive(packageName: String, base: Long, minutes: Long?, mode: Mode, overdue: Boolean) =
-    nm.notify(ID_LIVE, liveNotification(packageName, base, minutes, mode, overdue))
+  fun showLive(packageName: String, base: Long, chipMinutes: Long?, text: String, overdue: Boolean) =
+    nm.notify(ID_LIVE, liveNotification(packageName, base, chipMinutes, text, overdue))
 
   fun cancelLive() = nm.cancel(ID_LIVE)
 
   fun canPostPromoted(): Boolean = nm.canPostPromotedNotifications()
 
-  private fun appLabel(packageName: String): String =
+  fun appLabel(packageName: String): String =
     try {
       val pm = context.packageManager
       pm.getApplicationLabel(pm.getApplicationInfo(packageName, PackageManager.ApplicationInfoFlags.of(0))).toString()

@@ -22,12 +22,13 @@ class TrackerService : Service() {
   private lateinit var notifier: Notifier
   private lateinit var detector: ForegroundDetector
   private val sessions = SessionTracker()
+  private val opens = SessionTracker()
   private lateinit var days: DayTracker
   private lateinit var reminder: Reminder
   private var shown: Shown? = null
 
   /** Everything the chip currently displays; it is reposted only when this changes. */
-  private data class Shown(val active: Active, val minutes: Long?, val mode: Mode, val overdue: Boolean)
+  private data class Shown(val packageName: String, val base: Long, val chipMinutes: Long?, val text: String, val overdue: Boolean)
 
   private val tick = object : Runnable {
     override fun run() {
@@ -76,25 +77,58 @@ class TrackerService : Service() {
     val now = System.currentTimeMillis()
     val foreground = if (screenOn) detector.update(now) else null
     val tracked = prefs.trackedPackages
-    val mode = prefs.mode
-    val active = when (mode) {
-      Mode.SESSION -> sessions.onTick(now, foreground, tracked, prefs.graceSeconds * 1000L)
-      Mode.EACH_OPEN -> sessions.onTick(now, foreground, tracked, graceMs = 0)
-      Mode.DAY -> days.onTick(now, foreground, tracked)
+    // All counters keep ticking, so switching modes or showing two numbers never starts
+    // one of them from scratch.
+    val session = sessions.onTick(now, foreground, tracked, prefs.graceSeconds * 1000L)
+    val open = opens.onTick(now, foreground, tracked, graceMs = 0)
+    val day = days.onTick(now, foreground, tracked)
+    if (session == null || open == null || day == null) {
+      reminder.onTick(null, now, 0)
+      show(null)
+      return
     }
-    val reminderMinutes = prefs.reminderMinutes
-    reminder.onTick(active, now, reminderMinutes)
+
+    val packageName = session.packageName
+    val mode = prefs.modeFor(packageName)
+    val primary = when (mode) {
+      Mode.DAY -> day
+      Mode.SESSION -> session
+      Mode.EACH_OPEN -> open
+    }
+    val minutes = (now - primary.base) / 60_000
+    val interval = prefs.reminderFor(packageName)
+    reminder.onTick(primary, now, interval)?.let { mark -> remind(packageName, mode, mark, mark * interval) }
+
     val step = prefs.stepMinutes
-    val next = active?.let {
-      val minutes = if (step == 0) null else (now - it.base) / 60_000 / step * step
-      Shown(it, minutes, mode, isOverdue(it, now, reminderMinutes))
+    val chipMinutes = if (step == 0) null else minutes / step * step
+    val text = when {
+      prefs.showBoth -> {
+        val (otherMode, other) = if (mode == Mode.DAY) Mode.SESSION to session else Mode.DAY to day
+        "${counterName(mode)} ${Notifier.longMinutes(minutes)} · " +
+          "${counterName(otherMode).lowercase()} ${Notifier.longMinutes((now - other.base) / 60_000)}"
+      }
+      chipMinutes == null -> counterName(mode)
+      else -> "${counterName(mode)} ${Notifier.longMinutes(chipMinutes)}"
     }
-    // The chronometer counts on its own, so with a live timer this reposts only when the
-    // session changes; a chip the user swiped away stays away until then.
+    show(Shown(packageName, primary.base, chipMinutes, text, isOverdue(primary, now, interval)))
+  }
+
+  private fun show(next: Shown?) {
+    // With a live timer the chronometer counts on its own, so this reposts only when the
+    // session or the shade text changes; a chip the user swiped away stays away until then.
     if (next == shown) return
     if (next == null) notifier.cancelLive()
-    else notifier.showLive(next.active.packageName, next.active.base, next.minutes, next.mode, next.overdue)
+    else notifier.showLive(next.packageName, next.base, next.chipMinutes, next.text, next.overdue)
     shown = next
+  }
+
+  private fun remind(packageName: String, mode: Mode, mark: Long, minutes: Long) {
+    if (prefs.reminderVibrate) reminder.buzz(level = mark.toInt())
+    if (prefs.reminderText) {
+      val app = notifier.appLabel(packageName)
+      val time = Notifier.longMinutes(minutes)
+      reminder.say(if (mode == Mode.DAY) "Сьогодні вже $time у $app" else "$time у $app")
+    }
   }
 
   override fun onDestroy() {
@@ -108,6 +142,12 @@ class TrackerService : Service() {
 
   companion object {
     private const val TICK_MS = 1000L
+
+    fun counterName(mode: Mode) = when (mode) {
+      Mode.DAY -> "Сьогодні"
+      Mode.SESSION -> "Сесія"
+      Mode.EACH_OPEN -> "Цей раз"
+    }
 
     fun start(context: Context) = context.startForegroundService(Intent(context, TrackerService::class.java))
 

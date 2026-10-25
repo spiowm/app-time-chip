@@ -82,7 +82,7 @@ private fun SettingsScreen() {
     usageAccess = Permissions.hasUsageAccess(context),
     notifications = Permissions.hasNotifications(context),
     promoted = notifier.canPostPromoted(),
-    promotable = notifier.liveNotification(context.packageName, System.currentTimeMillis(), null, Mode.SESSION, false)
+    promotable = notifier.liveNotification(context.packageName, System.currentTimeMillis(), null, "", false)
       .hasPromotableCharacteristics(),
     battery = Permissions.ignoresBatteryOptimizations(context),
   )
@@ -93,8 +93,14 @@ private fun SettingsScreen() {
   var mode by remember { mutableStateOf(prefs.mode) }
   var grace by remember { mutableIntStateOf(prefs.graceSeconds) }
   var step by remember { mutableIntStateOf(prefs.stepMinutes) }
+  var showBoth by remember { mutableStateOf(prefs.showBoth) }
   var reminderMinutes by remember { mutableIntStateOf(prefs.reminderMinutes) }
+  var reminderVibrate by remember { mutableStateOf(prefs.reminderVibrate) }
+  var reminderText by remember { mutableStateOf(prefs.reminderText) }
   val reminder = remember { Reminder(context) }
+  var expanded by remember { mutableStateOf<String?>(null) }
+  // Bumped when a per-app override changes, so the summaries under app names refresh.
+  var overrides by remember { mutableIntStateOf(0) }
   var query by remember { mutableStateOf("") }
   var apps by remember { mutableStateOf<List<AppEntry>>(emptyList()) }
 
@@ -195,6 +201,10 @@ private fun SettingsScreen() {
             step = it
             prefs.stepMinutes = it
           }
+          SwitchRow("У шторці — і за сьогодні, і поточна сесія", showBoth) {
+            showBoth = it
+            prefs.showBoth = it
+          }
         }
       }
     }
@@ -208,11 +218,23 @@ private fun SettingsScreen() {
             prefs.reminderMinutes = it
           }
           Text(
-            "Коли лічильник доходить до кожних N хв — коротка вібрація, з часом довша. " +
-              "Значок у чипі стає пісочним годинником.",
+            "Щоразу, як лічильник доходить до наступних N хв. Значок у чипі стає пісочним годинником.",
             style = MaterialTheme.typography.bodySmall,
           )
-          TextButton(onClick = { reminder.buzz(level = 1) }) { Text("Спробувати вібрацію") }
+          SwitchRow("Вібрація (з кожним разом довша)", reminderVibrate) {
+            reminderVibrate = it
+            prefs.reminderVibrate = it
+          }
+          SwitchRow("Текст на екрані", reminderText) {
+            reminderText = it
+            prefs.reminderText = it
+          }
+          TextButton(
+            onClick = {
+              if (reminderVibrate) reminder.buzz(level = 1)
+              if (reminderText) reminder.say("15 хв у Reddit")
+            },
+          ) { Text("Спробувати") }
         }
       }
     }
@@ -229,25 +251,73 @@ private fun SettingsScreen() {
     }
 
     items(shownApps, key = { it.packageName }) { app ->
-      val checked = app.packageName in tracked
-      Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier
-          .fillMaxWidth()
-          .clickable {
-            tracked = if (checked) tracked - app.packageName else tracked + app.packageName
-            prefs.trackedPackages = tracked
+      val pkg = app.packageName
+      val checked = pkg in tracked
+      fun setTracked(on: Boolean) {
+        tracked = if (on) tracked + pkg else tracked - pkg
+        prefs.trackedPackages = tracked
+        if (!on && expanded == pkg) expanded = null
+      }
+      Column(Modifier.fillMaxWidth()) {
+        Row(
+          verticalAlignment = Alignment.CenterVertically,
+          modifier = Modifier
+            .fillMaxWidth()
+            .clickable { if (checked) expanded = if (expanded == pkg) null else pkg else setTracked(true) }
+            .padding(vertical = 4.dp),
+        ) {
+          Image(app.icon, contentDescription = null, modifier = Modifier.size(36.dp))
+          Spacer(Modifier.width(12.dp))
+          Column(Modifier.weight(1f)) {
+            Text(app.label)
+            if (checked) {
+              val summary = remember(overrides, mode, reminderMinutes) { appSummary(prefs, pkg) }
+              Text(summary, style = MaterialTheme.typography.bodySmall)
+            }
           }
-          .padding(vertical = 4.dp),
-      ) {
-        Image(app.icon, contentDescription = null, modifier = Modifier.size(36.dp))
-        Spacer(Modifier.width(12.dp))
-        Text(app.label, modifier = Modifier.weight(1f))
-        Checkbox(checked = checked, onCheckedChange = null)
+          Checkbox(checked = checked, onCheckedChange = ::setTracked)
+        }
+        if (checked && expanded == pkg) AppSettings(prefs, pkg) { overrides++ }
       }
     }
 
     item { Spacer(Modifier.padding(bottom = 16.dp)) }
+  }
+}
+
+@Composable
+private fun AppSettings(prefs: Prefs, packageName: String, onChange: () -> Unit) {
+  var mode by remember { mutableStateOf(prefs.appMode(packageName)) }
+  var reminder by remember { mutableStateOf(prefs.appReminder(packageName)) }
+  Column(Modifier.padding(start = 48.dp, bottom = 8.dp)) {
+    Text("Що рахує чип", style = MaterialTheme.typography.bodySmall)
+    Choices(listOf(null) + Mode.entries, mode, { it?.let(::modeLabel) ?: "як загалом" }) {
+      mode = it
+      prefs.setAppMode(packageName, it)
+      onChange()
+    }
+    Text("Нагадування", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 4.dp))
+    Choices(listOf(null) + Prefs.REMINDER_OPTIONS, reminder, { it?.let(::reminderLabel) ?: "як загалом" }) {
+      reminder = it
+      prefs.setAppReminder(packageName, it)
+      onChange()
+    }
+  }
+}
+
+private fun appSummary(prefs: Prefs, packageName: String): String {
+  val reminder = prefs.reminderFor(packageName)
+  val text = modeLabel(prefs.modeFor(packageName)) + " · " +
+    if (reminder == 0) "без нагадувань" else "нагадування кожні $reminder хв"
+  val custom = prefs.appMode(packageName) != null || prefs.appReminder(packageName) != null
+  return if (custom) text else "$text (загальні)"
+}
+
+@Composable
+private fun SwitchRow(title: String, checked: Boolean, onChange: (Boolean) -> Unit) {
+  Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(top = 4.dp)) {
+    Text(title, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+    Switch(checked = checked, onCheckedChange = onChange)
   }
 }
 
@@ -269,15 +339,15 @@ private fun <T> Choices(options: List<T>, selected: T, label: (T) -> String, onS
 }
 
 private fun modeLabel(mode: Mode) = when (mode) {
+  Mode.DAY -> "За день"
   Mode.SESSION -> "Сесія"
   Mode.EACH_OPEN -> "Кожне відкриття"
-  Mode.DAY -> "За день"
 }
 
 private fun modeDescription(mode: Mode) = when (mode) {
+  Mode.DAY -> "Скільки сьогодні загалом у цій апці. Обнуляється опівночі."
   Mode.SESSION -> "Безперервний час в апці. Коротко вийшли й повернулися — рахує далі, після довшої перерви — з нуля."
   Mode.EACH_OPEN -> "З нуля щоразу, як відкриваєте апку."
-  Mode.DAY -> "Скільки сьогодні загалом у цій апці. Обнуляється опівночі."
 }
 
 private fun graceLabel(seconds: Int) = if (seconds < 60) "$seconds с" else "${seconds / 60} хв"

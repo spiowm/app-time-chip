@@ -4,34 +4,35 @@ import android.content.Context
 import android.os.VibrationAttributes
 import android.os.VibrationEffect
 import android.os.VibratorManager
+import android.widget.Toast
 
 /**
- * Buzzes every time the counter passes another multiple of the interval. Opening an app
- * never buzzes for marks that were already behind, which matters for the daily mode.
+ * Fires every time the counter passes another multiple of the interval. Opening an app
+ * never fires for marks that were already behind, which matters for the daily mode.
  */
-class Reminder(context: Context) {
+class Reminder(private val context: Context) {
   private val vibrator = context.getSystemService(VibratorManager::class.java).defaultVibrator
   private var packageName: String? = null
   private var lastMark = 0L
 
-  fun onTick(active: Active?, now: Long, intervalMinutes: Int) {
+  /** Returns the mark just reached (1 for the first interval, 2 for the second…), or null. */
+  fun onTick(active: Active?, now: Long, intervalMinutes: Int): Long? {
     if (active == null || intervalMinutes == 0) {
       packageName = null
-      return
+      return null
     }
     val mark = (now - active.base) / (intervalMinutes * 60_000L)
     if (active.packageName != packageName) {
       packageName = active.packageName
       lastMark = mark
-      return
+      return null
     }
-    if (mark > lastMark) {
-      lastMark = mark
-      buzz(level = mark.toInt())
-    }
+    if (mark <= lastMark) return null
+    lastMark = mark
+    return mark
   }
 
-  /** A pattern that does not sound like a regular notification, and grows with each mark. */
+  /** A pattern that does not feel like a regular notification, and grows with each mark. */
   fun buzz(level: Int) {
     // Timings alternate off/on, starting with off: quick taps, plus a long buzz from level 3.
     val timings = mutableListOf(0L)
@@ -40,11 +41,15 @@ class Reminder(context: Context) {
       timings[timings.lastIndex] = 250L
       timings += 450L
     }
+    // Alarm usage so it still comes through with Do Not Disturb on.
     vibrator.vibrate(
       VibrationEffect.createWaveform(timings.toLongArray(), -1),
       VibrationAttributes.createForUsage(VibrationAttributes.USAGE_ALARM),
     )
   }
+
+  /** A toast rather than a heads-up notification: Do Not Disturb does not hide it. */
+  fun say(message: String) = Toast.makeText(context, message, Toast.LENGTH_LONG).show()
 }
 
 /** Whether the counter is already past the first reminder mark. */
