@@ -28,7 +28,7 @@ class Prefs(context: Context) {
     set(value) = sp.edit { putStringSet(KEY_TRACKED, value) }
 
   var mode: Mode
-    get() = Mode.entries.firstOrNull { it.name == sp.getString(KEY_MODE, null) } ?: Mode.SESSION
+    get() = Mode.entries.firstOrNull { it.name == sp.getString(KEY_MODE, null) } ?: Mode.DAY
     set(value) = sp.edit { putString(KEY_MODE, value.name) }
 
   /** In [Mode.SESSION]: how long you can step out of an app and come back without a restart. */
@@ -38,8 +38,13 @@ class Prefs(context: Context) {
 
   /** How often the number in the chip changes; 0 means a live seconds timer. */
   var stepMinutes: Int
-    get() = sp.getInt(KEY_STEP, 1)
+    get() = sp.getInt(KEY_STEP, 0)
     set(value) = sp.edit { putInt(KEY_STEP, value) }
+
+  /** Buzz each time the counter passes another multiple of this; 0 turns reminders off. */
+  var reminderMinutes: Int
+    get() = sp.getInt(KEY_REMINDER, 15)
+    set(value) = sp.edit { putInt(KEY_REMINDER, value) }
 
   companion object {
     private const val KEY_ENABLED = "enabled"
@@ -47,9 +52,11 @@ class Prefs(context: Context) {
     private const val KEY_MODE = "mode"
     private const val KEY_GRACE = "grace_seconds"
     private const val KEY_STEP = "step_minutes"
+    private const val KEY_REMINDER = "reminder_minutes"
 
     val DEFAULT_TRACKED = setOf("com.reddit.frontpage")
     val GRACE_OPTIONS = listOf(30, 60, 120, 300)
     val STEP_OPTIONS = listOf(0, 1, 5, 10)
+    val REMINDER_OPTIONS = listOf(0, 5, 10, 15, 30)
   }
 }

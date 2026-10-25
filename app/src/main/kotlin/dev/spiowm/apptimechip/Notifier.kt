@@ -38,11 +38,12 @@ class Notifier(private val context: Context) {
   /**
    * The chip. With [minutes] == null the system chronometer counts seconds on its own;
    * otherwise the chip shows [minutes] as text and the caller reposts when it changes.
+   * Pixel ignores the notification color in the chip, so [overdue] swaps the icon instead.
    */
-  fun liveNotification(packageName: String, base: Long, minutes: Long?, mode: Mode): Notification {
+  fun liveNotification(packageName: String, base: Long, minutes: Long?, mode: Mode, overdue: Boolean): Notification {
     val label = if (mode == Mode.DAY) "Сьогодні в цій апці" else "Час у цій апці"
     val builder = Notification.Builder(context, CHANNEL_LIVE)
-      .setSmallIcon(R.drawable.ic_timer)
+      .setSmallIcon(if (overdue) R.drawable.ic_hourglass else R.drawable.ic_timer)
       .setContentTitle(appLabel(packageName))
       .setContentIntent(openAppIntent())
       .setCategory(Notification.CATEGORY_STOPWATCH)
@@ -60,8 +61,8 @@ class Notifier(private val context: Context) {
     return builder.build()
   }
 
-  fun showLive(packageName: String, base: Long, minutes: Long?, mode: Mode) =
-    nm.notify(ID_LIVE, liveNotification(packageName, base, minutes, mode))
+  fun showLive(packageName: String, base: Long, minutes: Long?, mode: Mode, overdue: Boolean) =
+    nm.notify(ID_LIVE, liveNotification(packageName, base, minutes, mode, overdue))
 
   fun cancelLive() = nm.cancel(ID_LIVE)
 

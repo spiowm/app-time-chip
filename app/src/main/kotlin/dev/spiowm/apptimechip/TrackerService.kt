@@ -23,10 +23,11 @@ class TrackerService : Service() {
   private lateinit var detector: ForegroundDetector
   private val sessions = SessionTracker()
   private lateinit var days: DayTracker
+  private lateinit var reminder: Reminder
   private var shown: Shown? = null
 
   /** Everything the chip currently displays; it is reposted only when this changes. */
-  private data class Shown(val active: Active, val minutes: Long?, val mode: Mode)
+  private data class Shown(val active: Active, val minutes: Long?, val mode: Mode, val overdue: Boolean)
 
   private val tick = object : Runnable {
     override fun run() {
@@ -54,6 +55,7 @@ class TrackerService : Service() {
     notifier = Notifier(this)
     detector = ForegroundDetector(getSystemService(UsageStatsManager::class.java))
     days = DayTracker(detector)
+    reminder = Reminder(this)
     startForeground(Notifier.ID_SERVICE, notifier.serviceNotification(), ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
     registerReceiver(
       screenReceiver,
@@ -80,16 +82,18 @@ class TrackerService : Service() {
       Mode.EACH_OPEN -> sessions.onTick(now, foreground, tracked, graceMs = 0)
       Mode.DAY -> days.onTick(now, foreground, tracked)
     }
+    val reminderMinutes = prefs.reminderMinutes
+    reminder.onTick(active, now, reminderMinutes)
     val step = prefs.stepMinutes
     val next = active?.let {
       val minutes = if (step == 0) null else (now - it.base) / 60_000 / step * step
-      Shown(it, minutes, mode)
+      Shown(it, minutes, mode, isOverdue(it, now, reminderMinutes))
     }
     // The chronometer counts on its own, so with a live timer this reposts only when the
     // session changes; a chip the user swiped away stays away until then.
     if (next == shown) return
     if (next == null) notifier.cancelLive()
-    else notifier.showLive(next.active.packageName, next.active.base, next.minutes, next.mode)
+    else notifier.showLive(next.active.packageName, next.active.base, next.minutes, next.mode, next.overdue)
     shown = next
   }
 

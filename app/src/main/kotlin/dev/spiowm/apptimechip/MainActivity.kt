@@ -82,7 +82,7 @@ private fun SettingsScreen() {
     usageAccess = Permissions.hasUsageAccess(context),
     notifications = Permissions.hasNotifications(context),
     promoted = notifier.canPostPromoted(),
-    promotable = notifier.liveNotification(context.packageName, System.currentTimeMillis(), null, Mode.SESSION)
+    promotable = notifier.liveNotification(context.packageName, System.currentTimeMillis(), null, Mode.SESSION, false)
       .hasPromotableCharacteristics(),
     battery = Permissions.ignoresBatteryOptimizations(context),
   )
@@ -93,6 +93,8 @@ private fun SettingsScreen() {
   var mode by remember { mutableStateOf(prefs.mode) }
   var grace by remember { mutableIntStateOf(prefs.graceSeconds) }
   var step by remember { mutableIntStateOf(prefs.stepMinutes) }
+  var reminderMinutes by remember { mutableIntStateOf(prefs.reminderMinutes) }
+  val reminder = remember { Reminder(context) }
   var query by remember { mutableStateOf("") }
   var apps by remember { mutableStateOf<List<AppEntry>>(emptyList()) }
 
@@ -198,6 +200,24 @@ private fun SettingsScreen() {
     }
 
     item {
+      Card(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(12.dp)) {
+          Text("Нагадування", style = MaterialTheme.typography.titleMedium)
+          Choices(Prefs.REMINDER_OPTIONS, reminderMinutes, ::reminderLabel) {
+            reminderMinutes = it
+            prefs.reminderMinutes = it
+          }
+          Text(
+            "Коли лічильник доходить до кожних N хв — коротка вібрація, з часом довша. " +
+              "Значок у чипі стає пісочним годинником.",
+            style = MaterialTheme.typography.bodySmall,
+          )
+          TextButton(onClick = { reminder.buzz(level = 1) }) { Text("Спробувати вібрацію") }
+        }
+      }
+    }
+
+    item {
       Text("Апки (${tracked.size})", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp))
       OutlinedTextField(
         value = query,
@@ -261,6 +281,8 @@ private fun modeDescription(mode: Mode) = when (mode) {
 }
 
 private fun graceLabel(seconds: Int) = if (seconds < 60) "$seconds с" else "${seconds / 60} хв"
+
+private fun reminderLabel(minutes: Int) = if (minutes == 0) "вимк." else "$minutes хв"
 
 private fun stepLabel(minutes: Int) = when (minutes) {
   0 -> "щосекунди"
