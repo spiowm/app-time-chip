@@ -1,96 +1,52 @@
-# Час в апці
+# App Time Chip
 
-Android-апка, яка показує в статус-барі чип з часом, проведеним у поточній апці:
-відкрили Reddit — поруч із годинником з'являється `⏱ 12 хв`. Нічого не блокує, лише
-постійно нагадує, скільки минуло.
+**See how long you’ve been in an app without leaving it.**
 
-<img src="docs/chip.png" alt="Чип у статус-барі" width="360">
+App Time Chip puts a timer next to the Android status-bar clock while you use an app you’ve chosen to track. Pick a daily total, a session timer, or a fresh counter each time you open the app. Turn on reminders if you want a nudge while you scroll.
 
-Чип — це [Live Update](https://developer.android.com/develop/ui/views/notifications/live-update),
-той самий механізм, яким користуються таймер Годинника та Google Maps.
+<img src="docs/chip.png" alt="Android status bar showing an elapsed-time chip next to the clock" width="540">
 
-## Можливості
+## What you can track
 
-- **Вибір апок**, за якими стежити. Для кожної можна окремо задати, що рахує чип
-  і як часто нагадувати, — або лишити загальні налаштування.
-- **Що рахує чип:**
-  - *За день* (типово) — скільки сьогодні загалом у цій апці, обнуляється опівночі.
-  - *Сесія* — безперервний час в апці. Коротко вийшли й повернулися (від 30 с до 5 хв,
-    налаштовується) — рахує далі; після довшої перерви — з нуля.
-  - *Кожне відкриття* — з нуля щоразу, як відкриваєте апку.
-- **Як часто змінюється число:** щосекунди (типово, живий хронометр), щохвилини,
-  кожні 5 або 10 хв.
-- **У шторці — обидва числа** (вмикається): `Сьогодні 1 год 5 хв · сесія 12 хв`.
-- **Нагадування** кожні 5, 10, 15 (типово) або 30 хв на лічильнику, значок у чипі
-  змінюється на пісочний годинник. Сигнали вмикаються окремо:
-  - вібрація власного патерну, яка з кожною позначкою стає довшою; йде як будильник,
-    тож працює й у режимі «Не турбувати»;
-  - короткий текст на екрані: `Сьогодні вже 1 год у Reddit`.
-- Час поза апкою і з вимкненим екраном не рахується.
+| Mode | What the chip shows |
+| --- | --- |
+| **Today** | Total time in the app since midnight. |
+| **Session** | Time in the current session. Short breaks pause the timer and keep the session open. |
+| **Each visit** | Time since you last opened or returned to the app. |
 
-## Вимоги
+Choose the apps you want to track. Each app can have its own counter mode and reminder interval. The chip can count seconds live or update every 1, 5, or 10 minutes. Enable **Show a second counter in notifications** to see two counters in the notification shade.
 
-- Android 16 QPR1 або новіший (чипи Live Updates). Перевірено на Pixel 6a з Android 17.
-- Дозволи: доступ до використання (щоб знати, яка апка відкрита), сповіщення,
-  Live Updates. Бажано вимкнути оптимізацію батареї, щоб система не зупиняла сервіс.
-  Усе це видно й вмикається на головному екрані апки.
+<img src="docs/notification.png" alt="Clock notification with a daily total and session time" width="450">
 
-Апка не має доступу до інтернету й нічого нікуди не надсилає.
+Optional reminders repeat every 5, 10, 15, or 30 minutes on the selected counter. The chip switches to an hourglass and can vibrate, show a short message, or do both. The counter pauses when you leave the app or turn off the screen.
 
-## Збірка
+## Setup
 
-Потрібні JDK 17+ та Android SDK з платформою `android-37.0`.
+The status-bar chip requires **Android 16 QPR2 or later** and depends on your phone’s support for [Live Updates](https://developer.android.com/develop/ui/views/notifications/live-update). The chip was tested on a Pixel 6a running Android 17.
 
-```bash
+1. [Build and install the app](#build-from-source).
+2. Open **App Time Chip** and allow **Usage access**, **Notifications**, and **Live Updates**.
+3. Turn on **Track app usage**, select at least one app, and open it to see the timer next to the clock.
+
+If Android keeps stopping tracking in the background, allow unrestricted battery use for App Time Chip. The app supports English and Ukrainian. Android’s app language settings let you choose either language.
+
+<img src="docs/settings.png" alt="App Time Chip settings with tracking on, three counter modes, and reminder intervals" width="310">
+
+Usage access lets the app identify the foreground app and calculate today’s total. Tracking runs on your device and the app requests no internet permission. Full-screen apps can hide the status bar and the timer with it. Reminders can still vibrate.
+
+## Build from source
+
+Use JDK 17 and the Android SDK platform for API 37 (`platforms/android-37.0`). From the repository root:
+
+```sh
 ./gradlew assembleDebug
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
 
-`./gradlew assembleRelease` дає мініфікований APK на ~2 МБ (без підпису).
+`./gradlew lintDebug` runs Android lint. `./gradlew assembleRelease` builds a minified unsigned APK.
 
-Дозволи можна видати й через adb:
+## How it works
 
-```bash
-adb shell appops set dev.spiowm.apptimechip GET_USAGE_STATS allow
-adb shell pm grant dev.spiowm.apptimechip android.permission.POST_NOTIFICATIONS
-adb shell dumpsys deviceidle whitelist +dev.spiowm.apptimechip
-```
+The app uses Kotlin and Jetpack Compose. A foreground service reads Android usage events once a second while the screen is on. The counters run in parallel so you can switch modes without clearing the current session. A Live Update notification gives Android the timer to render in the status bar.
 
-## Як це працює
-
-- `TrackerService` — foreground-сервіс. Поки екран увімкнено, раз на секунду читає
-  `UsageStatsManager.queryEvents` і бачить, яка апка на передньому плані. З вимкненим
-  екраном нічого не робить.
-- `SessionTracker` / `DayTracker` (`Tracking.kt`) рахують сесії або денний підсумок.
-- `Notifier` публікує сповіщення з `setRequestPromotedOngoing(true)`: або з хронометром
-  (`setUsesChronometer`), або з текстом (`setShortCriticalText`). Перевипускається лише
-  тоді, коли змінюється показане число.
-- Усі три лічильники (день, сесія, відкриття) рахуються паралельно; режим апки лише
-  вибирає, який із них показати в чипі.
-- `Reminder` спрацьовує, коли лічильник перетинає наступну позначку; позначки, що вже
-  позаду на момент відкриття апки, не рахуються. Текст — це toast, а не спливне
-  сповіщення: його не ховає «Не турбувати».
-- Фонове сповіщення сервісу — у каналі мінімальної важливості, тож у статус-барі
-  його не видно.
-
-## Батарея
-
-Замір на Pixel 6a: 5 хв з відкритим Reddit і ввімкненим відстеженням. За
-`dumpsys batterystats` апка витратила 0,014 мА·год (≈ 0,17 мА·год на годину ввімкненого
-екрана), Reddit за той самий час — 7,1 мА·год. Процесорного часу — 2 с за 5 хв.
-З вимкненим екраном апка нічого не робить.
-
-## Обмеження
-
-- У повноекранному режимі (відео, ігри) статус-бар схований разом із чипом —
-  лишається вібрація.
-- Pixel не фарбує чип у колір сповіщення, тому про перевищення каже значок, а не колір.
-- Чи показувати чип, вирішує система; Google задумував Live Updates для навігації,
-  дзвінків і доставки, тож у майбутніх версіях Android це може змінитися.
-
-## Ідея
-
-Натхнення — дослідження Zheng, Seo, Choe,
-[From Awareness to Action](https://doi.org/10.1145/3749507) (ACM IMWUT, 2025):
-число тривалості сесії в статус-барі скоротило сесії та екранний час учасників.
-Там рахувався час від розблокування телефона; тут — час у конкретній апці.
+The idea came from [*From Awareness to Action*](https://doi.org/10.1145/3749507), a 2025 study on showing phone session duration in the status bar. App Time Chip applies the same idea to individual apps.
