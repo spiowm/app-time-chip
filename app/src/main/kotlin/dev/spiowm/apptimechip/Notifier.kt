@@ -7,6 +7,7 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.os.Build
 
 /** Builds the two notifications: the silent service one and the Live Update chip. */
 class Notifier(private val context: Context) {
@@ -14,12 +15,12 @@ class Notifier(private val context: Context) {
 
   init {
     nm.createNotificationChannel(
-      NotificationChannel(CHANNEL_SERVICE, "Фонова робота", NotificationManager.IMPORTANCE_MIN)
+      NotificationChannel(CHANNEL_SERVICE, context.getString(R.string.channel_service), NotificationManager.IMPORTANCE_MIN)
     )
     // A promoted notification must not sit in an IMPORTANCE_MIN channel, so the chip gets
     // its own default-importance channel with sound and vibration turned off.
     nm.createNotificationChannel(
-      NotificationChannel(CHANNEL_LIVE, "Таймер апки", NotificationManager.IMPORTANCE_DEFAULT).apply {
+      NotificationChannel(CHANNEL_LIVE, context.getString(R.string.channel_timer), NotificationManager.IMPORTANCE_DEFAULT).apply {
         setSound(null, null)
         enableVibration(false)
         setShowBadge(false)
@@ -30,7 +31,7 @@ class Notifier(private val context: Context) {
   fun serviceNotification(): Notification =
     Notification.Builder(context, CHANNEL_SERVICE)
       .setSmallIcon(R.drawable.ic_timer)
-      .setContentTitle("Стежу за часом в апках")
+      .setContentTitle(context.getString(R.string.tracking_notification))
       .setContentIntent(openAppIntent())
       .setOngoing(true)
       .build()
@@ -49,8 +50,10 @@ class Notifier(private val context: Context) {
       .setCategory(Notification.CATEGORY_STOPWATCH)
       .setOngoing(true)
       .setOnlyAlertOnce(true)
-      .setRequestPromotedOngoing(true)
       .setWhen(base)
+    if (Build.VERSION.SDK_INT_FULL >= Build.VERSION_CODES_FULL.BAKLAVA_1) {
+      builder.setRequestPromotedOngoing(true)
+    }
     if (chipMinutes == null) {
       builder.setShowWhen(true).setUsesChronometer(true)
     } else {
@@ -81,14 +84,15 @@ class Notifier(private val context: Context) {
       PendingIntent.FLAG_IMMUTABLE,
     )
 
+  private fun shortMinutes(minutes: Long): String =
+    if (minutes < 60) context.getString(R.string.chip_minutes, minutes)
+    else context.getString(R.string.chip_hours_minutes, minutes / 60, minutes % 60)
+
+  fun longMinutes(minutes: Long): String =
+    if (minutes < 60) context.getString(R.string.duration_minutes, minutes)
+    else context.getString(R.string.duration_hours_minutes, minutes / 60, minutes % 60)
+
   companion object {
-    /** Chip text, kept under 7 characters so the status bar never truncates it. */
-    fun shortMinutes(minutes: Long): String =
-      if (minutes < 60) "$minutes хв" else "${minutes / 60} г %02d".format(minutes % 60)
-
-    fun longMinutes(minutes: Long): String =
-      if (minutes < 60) "$minutes хв" else "${minutes / 60} год ${minutes % 60} хв"
-
     const val CHANNEL_SERVICE = "service"
     const val CHANNEL_LIVE = "live"
     const val ID_SERVICE = 1

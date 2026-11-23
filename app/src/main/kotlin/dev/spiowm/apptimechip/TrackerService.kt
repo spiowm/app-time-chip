@@ -104,11 +104,14 @@ class TrackerService : Service() {
     val text = when {
       prefs.showBoth -> {
         val (otherMode, other) = if (mode == Mode.DAY) Mode.SESSION to session else Mode.DAY to day
-        "${counterName(mode)} ${Notifier.longMinutes(minutes)} · " +
-          "${counterName(otherMode).lowercase()} ${Notifier.longMinutes((now - other.base) / 60_000)}"
+        getString(
+          R.string.counter_pair,
+          counterValue(mode, minutes),
+          counterValue(otherMode, (now - other.base) / 60_000),
+        )
       }
       chipMinutes == null -> counterName(mode)
-      else -> "${counterName(mode)} ${Notifier.longMinutes(chipMinutes)}"
+      else -> counterValue(mode, chipMinutes)
     }
     show(Shown(packageName, primary.base, chipMinutes, text, isOverdue(primary, now, interval)))
   }
@@ -126,8 +129,9 @@ class TrackerService : Service() {
     if (prefs.reminderVibrate) reminder.buzz(level = mark.toInt())
     if (prefs.reminderText) {
       val app = notifier.appLabel(packageName)
-      val time = Notifier.longMinutes(minutes)
-      reminder.say(if (mode == Mode.DAY) "Сьогодні вже $time у $app" else "$time у $app")
+      val time = notifier.longMinutes(minutes)
+      val message = if (mode == Mode.DAY) R.string.reminder_today else R.string.reminder_elapsed
+      reminder.say(getString(message, time, app))
     }
   }
 
@@ -140,14 +144,17 @@ class TrackerService : Service() {
 
   override fun onBind(intent: Intent?): IBinder? = null
 
+  private fun counterName(mode: Mode) = getString(when (mode) {
+    Mode.DAY -> R.string.counter_today
+    Mode.SESSION -> R.string.counter_session
+    Mode.EACH_OPEN -> R.string.counter_visit
+  })
+
+  private fun counterValue(mode: Mode, minutes: Long) =
+    getString(R.string.counter_value, counterName(mode), notifier.longMinutes(minutes))
+
   companion object {
     private const val TICK_MS = 1000L
-
-    fun counterName(mode: Mode) = when (mode) {
-      Mode.DAY -> "Сьогодні"
-      Mode.SESSION -> "Сесія"
-      Mode.EACH_OPEN -> "Цей раз"
-    }
 
     fun start(context: Context) = context.startForegroundService(Intent(context, TrackerService::class.java))
 

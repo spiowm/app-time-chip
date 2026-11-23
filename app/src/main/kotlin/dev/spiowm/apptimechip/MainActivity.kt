@@ -1,7 +1,9 @@
 package dev.spiowm.apptimechip
 
 import android.Manifest
+import android.content.Context
 import android.content.Intent
+import android.content.res.Resources
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -44,6 +46,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.drawable.toBitmap
 import androidx.lifecycle.compose.LifecycleResumeEffect
@@ -98,6 +102,7 @@ private fun SettingsScreen() {
   var reminderVibrate by remember { mutableStateOf(prefs.reminderVibrate) }
   var reminderText by remember { mutableStateOf(prefs.reminderText) }
   val reminder = remember { Reminder(context) }
+  val reminderPreview = stringResource(R.string.reminder_preview)
   var expanded by remember { mutableStateOf<String?>(null) }
   // Bumped when a per-app override changes, so the summaries under app names refresh.
   var overrides by remember { mutableIntStateOf(0) }
@@ -126,9 +131,9 @@ private fun SettingsScreen() {
     verticalArrangement = Arrangement.spacedBy(8.dp),
   ) {
     item {
-      Text("Час в апці", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.padding(top = 16.dp))
+      Text(stringResource(R.string.app_name), style = MaterialTheme.typography.headlineMedium, modifier = Modifier.padding(top = 16.dp))
       Text(
-        "Чип у статус-барі показує, скільки ви вже у вибраній апці.",
+        stringResource(R.string.app_intro),
         style = MaterialTheme.typography.bodyMedium,
       )
     }
@@ -136,21 +141,21 @@ private fun SettingsScreen() {
     item {
       Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(12.dp)) {
-          Text("Дозволи", style = MaterialTheme.typography.titleMedium)
-          PermissionRow("Доступ до використання", status.usageAccess) {
+          Text(stringResource(R.string.permissions), style = MaterialTheme.typography.titleMedium)
+          PermissionRow(stringResource(R.string.usage_access), status.usageAccess) {
             context.startActivity(Permissions.usageAccessSettings(context))
           }
-          PermissionRow("Сповіщення", status.notifications) {
+          PermissionRow(stringResource(R.string.notifications), status.notifications) {
             notificationLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
           }
-          PermissionRow("Live Updates (чип)", status.promoted) {
+          PermissionRow(stringResource(R.string.live_updates), status.promoted) {
             context.startActivity(Permissions.promotedSettings(context))
           }
-          PermissionRow("Без оптимізації батареї", status.battery) {
+          PermissionRow(stringResource(R.string.battery), status.battery) {
             context.startActivity(Permissions.batterySettings(context))
           }
           Text(
-            if (status.promotable) "Сповіщення відповідає вимогам Live Update" else "Сповіщення НЕ відповідає вимогам Live Update",
+            stringResource(if (status.promotable) R.string.promotion_ready else R.string.promotion_unavailable),
             style = MaterialTheme.typography.bodySmall,
           )
         }
@@ -161,7 +166,7 @@ private fun SettingsScreen() {
       Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(12.dp)) {
           Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("Відстежувати", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+            Text(stringResource(R.string.tracking), style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
             Switch(
               checked = enabled,
               enabled = status.usageAccess,
@@ -179,15 +184,15 @@ private fun SettingsScreen() {
     item {
       Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(12.dp)) {
-          Text("Що рахує чип", style = MaterialTheme.typography.titleMedium)
-          Choices(Mode.entries, mode, ::modeLabel) {
+          Text(stringResource(R.string.counter_mode), style = MaterialTheme.typography.titleMedium)
+          Choices(Mode.entries, mode, { stringResource(modeLabel(it)) }) {
             mode = it
             prefs.mode = it
           }
-          Text(modeDescription(mode), style = MaterialTheme.typography.bodySmall)
+          Text(stringResource(modeDescription(mode)), style = MaterialTheme.typography.bodySmall)
           if (mode == Mode.SESSION) {
             Text(
-              "Можна вийти й повернутися без скидання:",
+              stringResource(R.string.session_grace),
               style = MaterialTheme.typography.bodySmall,
               modifier = Modifier.padding(top = 8.dp),
             )
@@ -196,12 +201,12 @@ private fun SettingsScreen() {
               prefs.graceSeconds = it
             }
           }
-          Text("Число в чипі змінюється:", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp))
+          Text(stringResource(R.string.update_interval), style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp))
           Choices(Prefs.STEP_OPTIONS, step, ::stepLabel) {
             step = it
             prefs.stepMinutes = it
           }
-          SwitchRow("У шторці — і за сьогодні, і поточна сесія", showBoth) {
+          SwitchRow(stringResource(R.string.show_both), showBoth) {
             showBoth = it
             prefs.showBoth = it
           }
@@ -212,39 +217,39 @@ private fun SettingsScreen() {
     item {
       Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(12.dp)) {
-          Text("Нагадування", style = MaterialTheme.typography.titleMedium)
+          Text(stringResource(R.string.reminders), style = MaterialTheme.typography.titleMedium)
           Choices(Prefs.REMINDER_OPTIONS, reminderMinutes, ::reminderLabel) {
             reminderMinutes = it
             prefs.reminderMinutes = it
           }
           Text(
-            "Щоразу, як лічильник доходить до наступних N хв. Значок у чипі стає пісочним годинником.",
+            stringResource(R.string.reminders_help),
             style = MaterialTheme.typography.bodySmall,
           )
-          SwitchRow("Вібрація (з кожним разом довша)", reminderVibrate) {
+          SwitchRow(stringResource(R.string.reminder_vibration), reminderVibrate) {
             reminderVibrate = it
             prefs.reminderVibrate = it
           }
-          SwitchRow("Текст на екрані", reminderText) {
+          SwitchRow(stringResource(R.string.reminder_text), reminderText) {
             reminderText = it
             prefs.reminderText = it
           }
           TextButton(
             onClick = {
               if (reminderVibrate) reminder.buzz(level = 1)
-              if (reminderText) reminder.say("15 хв у Reddit")
+              if (reminderText) reminder.say(reminderPreview)
             },
-          ) { Text("Спробувати") }
+          ) { Text(stringResource(R.string.reminder_try)) }
         }
       }
     }
 
     item {
-      Text("Апки (${tracked.size})", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp))
+      Text(stringResource(R.string.app_count, tracked.size), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp))
       OutlinedTextField(
         value = query,
         onValueChange = { query = it },
-        label = { Text("Пошук") },
+        label = { Text(stringResource(R.string.app_search)) },
         singleLine = true,
         modifier = Modifier.fillMaxWidth(),
       )
@@ -271,7 +276,10 @@ private fun SettingsScreen() {
           Column(Modifier.weight(1f)) {
             Text(app.label)
             if (checked) {
-              val summary = remember(overrides, mode, reminderMinutes) { appSummary(prefs, pkg) }
+              val resources = LocalResources.current
+              val summary = remember(resources, overrides, mode, reminderMinutes) {
+                resources.appSummary(prefs, pkg)
+              }
               Text(summary, style = MaterialTheme.typography.bodySmall)
             }
           }
@@ -287,17 +295,18 @@ private fun SettingsScreen() {
 
 @Composable
 private fun AppSettings(prefs: Prefs, packageName: String, onChange: () -> Unit) {
+  val useDefault = stringResource(R.string.use_defaults)
   var mode by remember { mutableStateOf(prefs.appMode(packageName)) }
   var reminder by remember { mutableStateOf(prefs.appReminder(packageName)) }
   Column(Modifier.padding(start = 48.dp, bottom = 8.dp)) {
-    Text("Що рахує чип", style = MaterialTheme.typography.bodySmall)
-    Choices(listOf(null) + Mode.entries, mode, { it?.let(::modeLabel) ?: "як загалом" }) {
+    Text(stringResource(R.string.counter_mode), style = MaterialTheme.typography.bodySmall)
+    Choices(listOf(null) + Mode.entries, mode, { if (it == null) useDefault else stringResource(modeLabel(it)) }) {
       mode = it
       prefs.setAppMode(packageName, it)
       onChange()
     }
-    Text("Нагадування", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 4.dp))
-    Choices(listOf(null) + Prefs.REMINDER_OPTIONS, reminder, { it?.let(::reminderLabel) ?: "як загалом" }) {
+    Text(stringResource(R.string.reminders), style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 4.dp))
+    Choices(listOf(null) + Prefs.REMINDER_OPTIONS, reminder, { if (it == null) useDefault else reminderLabel(it) }) {
       reminder = it
       prefs.setAppReminder(packageName, it)
       onChange()
@@ -305,12 +314,13 @@ private fun AppSettings(prefs: Prefs, packageName: String, onChange: () -> Unit)
   }
 }
 
-private fun appSummary(prefs: Prefs, packageName: String): String {
+private fun Resources.appSummary(prefs: Prefs, packageName: String): String {
   val reminder = prefs.reminderFor(packageName)
-  val text = modeLabel(prefs.modeFor(packageName)) + " · " +
-    if (reminder == 0) "без нагадувань" else "нагадування кожні $reminder хв"
+  val reminderText = if (reminder == 0) getString(R.string.no_reminders)
+    else getString(R.string.reminder_interval, reminder)
+  val summary = getString(R.string.app_summary, getString(modeLabel(prefs.modeFor(packageName))), reminderText)
   val custom = prefs.appMode(packageName) != null || prefs.appReminder(packageName) != null
-  return if (custom) text else "$text (загальні)"
+  return if (custom) summary else getString(R.string.app_summary_default, summary)
 }
 
 @Composable
@@ -325,12 +335,12 @@ private fun SwitchRow(title: String, checked: Boolean, onChange: (Boolean) -> Un
 private fun PermissionRow(title: String, granted: Boolean, onGrant: () -> Unit) {
   Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
     Text((if (granted) "✓ " else "✗ ") + title, modifier = Modifier.weight(1f))
-    if (!granted) TextButton(onClick = onGrant) { Text("Дозволити") }
+    if (!granted) TextButton(onClick = onGrant) { Text(stringResource(R.string.grant_permission)) }
   }
 }
 
 @Composable
-private fun <T> Choices(options: List<T>, selected: T, label: (T) -> String, onSelect: (T) -> Unit) {
+private fun <T> Choices(options: List<T>, selected: T, label: @Composable (T) -> String, onSelect: (T) -> Unit) {
   FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
     for (option in options) {
       FilterChip(selected = option == selected, onClick = { onSelect(option) }, label = { Text(label(option)) })
@@ -339,28 +349,34 @@ private fun <T> Choices(options: List<T>, selected: T, label: (T) -> String, onS
 }
 
 private fun modeLabel(mode: Mode) = when (mode) {
-  Mode.DAY -> "За день"
-  Mode.SESSION -> "Сесія"
-  Mode.EACH_OPEN -> "Кожне відкриття"
+  Mode.DAY -> R.string.mode_day
+  Mode.SESSION -> R.string.mode_session
+  Mode.EACH_OPEN -> R.string.mode_open
 }
 
 private fun modeDescription(mode: Mode) = when (mode) {
-  Mode.DAY -> "Скільки сьогодні загалом у цій апці. Обнуляється опівночі."
-  Mode.SESSION -> "Безперервний час в апці. Коротко вийшли й повернулися — рахує далі, після довшої перерви — з нуля."
-  Mode.EACH_OPEN -> "З нуля щоразу, як відкриваєте апку."
+  Mode.DAY -> R.string.mode_day_help
+  Mode.SESSION -> R.string.mode_session_help
+  Mode.EACH_OPEN -> R.string.mode_open_help
 }
 
-private fun graceLabel(seconds: Int) = if (seconds < 60) "$seconds с" else "${seconds / 60} хв"
+@Composable
+private fun graceLabel(seconds: Int) =
+  if (seconds < 60) stringResource(R.string.duration_seconds, seconds)
+  else stringResource(R.string.duration_minutes, seconds / 60)
 
-private fun reminderLabel(minutes: Int) = if (minutes == 0) "вимк." else "$minutes хв"
+@Composable
+private fun reminderLabel(minutes: Int) =
+  if (minutes == 0) stringResource(R.string.reminders_off) else stringResource(R.string.duration_minutes, minutes)
 
+@Composable
 private fun stepLabel(minutes: Int) = when (minutes) {
-  0 -> "щосекунди"
-  1 -> "щохвилини"
-  else -> "кожні $minutes хв"
+  0 -> stringResource(R.string.every_second)
+  1 -> stringResource(R.string.every_minute)
+  else -> stringResource(R.string.every_minutes, minutes)
 }
 
-private fun loadApps(context: android.content.Context): List<AppEntry> {
+private fun loadApps(context: Context): List<AppEntry> {
   val pm = context.packageManager
   val launcher = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
   return pm.queryIntentActivities(launcher, 0)
