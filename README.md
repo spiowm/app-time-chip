@@ -1,10 +1,16 @@
-# App Time Chip
+<p align="center">
+  <img src="docs/app-icon.png" width="96" height="96" alt="App Time Chip icon: a stopwatch and the number 12">
+</p>
 
-**See how long you’ve been in an app without leaving it.**
+<h1 align="center">App Time Chip</h1>
 
-App Time Chip puts a timer next to the Android status-bar clock while you use an app you’ve chosen to track. Pick a daily total, a session timer, or a fresh counter each time you open the app. Turn on reminders if you want a nudge while you scroll.
+<p align="center"><strong>See how long you’ve been in an app without leaving it.</strong></p>
 
-<img src="docs/chip.png" alt="Android status bar showing an elapsed-time chip next to the clock" width="540">
+<p align="center">App Time Chip puts a timer next to the Android status-bar clock while you use an app you’ve chosen to track. Pick a daily total, a session timer, or a fresh counter each time you open the app. Turn on reminders if you want a nudge while you scroll.</p>
+
+<p align="center">
+  <img src="docs/demo.gif" width="400" alt="Opening Clock starts the timer in the status bar. The notification shade then shows the session and daily totals.">
+</p>
 
 ## What you can track
 
@@ -16,7 +22,10 @@ App Time Chip puts a timer next to the Android status-bar clock while you use an
 
 Choose the apps you want to track. Each app can have its own counter mode and reminder interval. The chip can count seconds live or update every 1, 5, or 10 minutes. Enable **Show a second counter in notifications** to see two counters in the notification shade.
 
-<img src="docs/notification.png" alt="Clock notification with a daily total and session time" width="450">
+<p align="center">
+  <img src="docs/chip.png" width="360" alt="Clock app with the elapsed-time chip beside the status-bar clock">
+  <img src="docs/notification.png" width="360" alt="Notification shade showing Clock’s daily total and session time">
+</p>
 
 Optional reminders repeat every 5, 10, 15, or 30 minutes on the selected counter. The chip switches to an hourglass and can vibrate, show a short message, or do both. The counter pauses when you leave the app or turn off the screen.
 
@@ -30,7 +39,9 @@ The status-bar chip requires **Android 16 QPR2 or later** and depends on your ph
 
 If Android keeps stopping tracking in the background, allow unrestricted battery use for App Time Chip. The app supports English and Ukrainian. Android’s app language settings let you choose either language.
 
-<img src="docs/settings.png" alt="App Time Chip settings with tracking on, three counter modes, and reminder intervals" width="310">
+<p align="center">
+  <img src="docs/settings.png" width="310" alt="App Time Chip settings with tracking on, three counter modes, and reminder intervals">
+</p>
 
 Usage access lets the app identify the foreground app and calculate today’s total. Tracking runs on your device and the app requests no internet permission. Full-screen apps can hide the status bar and the timer with it. Reminders can still vibrate.
 
